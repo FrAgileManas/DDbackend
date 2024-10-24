@@ -1,7 +1,7 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# Docs for the Azure Web Apps Deploy action: https://github.com/azure/functions-action
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy Node.js app to Azure Web App - donordash
+name: Build and deploy Node.js project to Azure Function App - donordash
 
 on:
   push:
@@ -9,24 +9,31 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
+  NODE_VERSION: '20.x' # set this to the node version to use (supports 8.x, 10.x, 12.x)
+
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - name: 'Checkout GitHub Action'
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js version
+      - name: Setup Node ${{ env.NODE_VERSION }} Environment
         uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: npm install, build, and test
+      - name: 'Resolve Project Dependencies Using Npm'
+        shell: pwsh
         run: |
+          pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
           npm install
           npm run build --if-present
           npm run test --if-present
-      
+          popd
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
@@ -34,11 +41,9 @@ jobs:
           path: .
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     needs: build
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    
     permissions:
       id-token: write #This is required for requesting the JWT
 
@@ -51,15 +56,15 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_17271C3BB88845B29E9231A25EC5426E }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_D9E5F88463CE47BA80D75087BDCE03EC }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_506505C4C47E498C95677754C20B7331 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_FB42CDC06DEB4E199F847999F1CEF6CE }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_6A9E074D4FC14FC9B589F2356F7E91F8 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4146EA9EDA3C473ABA18DAAAABF848B8 }}
 
-      - name: 'Deploy to Azure Web App'
-        uses: azure/webapps-deploy@v3
-        id: deploy-to-webapp
+      - name: 'Run Azure Functions Action'
+        uses: Azure/functions-action@v1
+        id: fa
         with:
           app-name: 'donordash'
           slot-name: 'Production'
-          package: .
+          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
           
