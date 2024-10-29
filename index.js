@@ -6,11 +6,8 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
-const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:5173'; // Use environment variable or default
-
 app.use(cors({
-    origin: frontendOrigin
+    origin: "*"
 }));
 app.use(bodyParser.json());
 
@@ -23,7 +20,9 @@ const otpRoutes = require('./routes/otpRoutes');
 app.use("/user", userRoutes);
 app.use("/OTP", otpRoutes);
 
-
+app.get("/",(req,res)=>{
+    res.send("server runninnggggg....")
+});
 // Start the server
 app.listen(port, () => {
     console.log(`Server running on port:${port}`);
