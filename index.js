@@ -14,12 +14,12 @@ app.use(bodyParser.json());
 // Routes
 const userRoutes = require('./routes/userRoutes');
 const otpRoutes = require('./routes/otpRoutes');
-
+const feed=require('./routes/feed')
 
 // Use routes
 app.use("/user", userRoutes);
 app.use("/OTP", otpRoutes);
-
+app.use("/feed",feed)
 app.get("/",(req,res)=>{
     res.send("server runninnggggg....")
 });
