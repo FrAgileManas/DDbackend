@@ -66,7 +66,7 @@ async function sendEmail(body,add) {
         <p><strong>Location:</strong> ${body.location}</p>
         <p><strong>Patient in Need:</strong> ${body.patientDescription}</p>
         <p>If you are available and willing to donate, please RSVP as soon as possible by clicking the link below. Your contribution could make all the difference for someone in critical need.</p>
-        <a href="" class="btn">RSVP Now</a>
+        <a href="https://donor-dash-frontend.onrender.com/chat" class="btn">RSVP Now</a>
         <p>Once you confirm your availability, we will provide you with further details to coordinate the donation.</p>
         <p>Thank you for being a hero and making a positive impact in someone's life today. Every donation counts, and your generosity is truly appreciated.</p>
         <p>Warm regards,</p>
