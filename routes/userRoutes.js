@@ -8,25 +8,45 @@ console.log("sendEmail:", sendEmail);
 router.post("/signup", (req, res) => {
     const { name, age, phone, email, password } = req.body;
 
-    if (!name || !age || !phone || !email || !password) {
-        return res.status(400).json({ error: "All fields are required." });
-    }
-
-    const query = `
-        INSERT INTO users (name, age, phone, email, password)
-        VALUES (?, ?, ?, ?, ?)
+    // Check if the phone number or email already exists
+    const checkQuery = `
+        SELECT id FROM users WHERE phone = ? OR email = ?
     `;
 
-    db.run(query, [name, age, phone, email, password], function (err) {
+    db.get(checkQuery, [phone, email], (err, row) => {
         if (err) {
-            if (err.message.includes('UNIQUE constraint failed: users.phone')) {
-                return res.status(400).json({ error: "Phone number already exists." });
-            }
-            return res.status(500).json({ error: "Failed to insert data." });
+            return res.status(500).json({ error: "Database error while checking uniqueness." });
         }
-        res.status(200).json({ message: "Signup successful!", userId: this.lastID });
+
+        if (row) {
+            return res.status(400).json({ 
+                error: row.phone === phone 
+                    ? "Phone number already exists." 
+                    : "Email already exists."
+            });
+        }
+
+        // Insert new user if phone and email are unique
+        const insertQuery = `
+            INSERT INTO users (name, age, phone, email, password)
+            VALUES (?, ?, ?, ?, ?)
+        `;
+
+        db.run(insertQuery, [name, age, phone, email, password], function (err) {
+            if (err) {
+                return res.status(500).json({ error: "Failed to insert user." });
+            }
+
+            // Return the ID of the newly inserted user
+            console.log(this.lastID)
+            res.status(200).json({ 
+                message: "Signup successful!", 
+                userId: this.lastID 
+            });
+        });
     });
 });
+
 
 // Login route
 router.post("/login", (req, res) => {
@@ -92,11 +112,11 @@ router.post("/donordb", (req, res) => {
 });
 
 router.post('/request', (req, res) => {
-    const { requiredBloodGroup, notifyOPositive, city, patientName, patientDescription } = req.body;
+    const { ID,requiredBloodGroup, notifyOPositive, city, patientName, patientDescription } = req.body;
     console.log(req.body);
 
     let bloodGroupQuery = `donors.bloodType = '${requiredBloodGroup}'`;  // Start with the requested blood group
-
+    let contact;
     if (notifyOPositive&& requiredBloodGroup!="O+") { // Only append OR condition if notifyOPositive is true
         bloodGroupQuery = `donors.bloodType = '${requiredBloodGroup}' OR donors.bloodType = 'O+'`;
     }
@@ -109,7 +129,19 @@ router.post('/request', (req, res) => {
         WHERE (${bloodGroupQuery}) AND donors.pincode = ?
     `;  // Using parameterized query
 
+    db.get('SELECT phone FROM users WHERE id = ?', ID, (err, row) => {
+        if (err) {
+            console.error(err.message);
+        } else {
+            if (row) {
+                contact=row.phone;
+                // console.log(`Phone number for user ID ${ID}: ${row.phone}`);
+            } else {
+                console.log(`User with ID ${ID} not found.`);
+            }
+        }
 
+    });
     db.all(query, [city], (err, rows) => {  // Use parameterized query for city
         if (err) {
             console.error('Error executing the query:', err);
@@ -119,17 +151,19 @@ router.post('/request', (req, res) => {
         if (rows.length > 0) {
             rows.forEach(row => { // Use forEach to iterate over rows
                 sendEmail({
+                    contact:contact,
                     donorName: row.name,
                     bloodType: requiredBloodGroup, // Send the *requested* blood group in email
                     location: city,
                     patientDescription: patientDescription
                 }, row.email);
-                // sendSMS({
-                //     donorName: row.name,
-                //     bloodType: requiredBloodGroup, // Send the *requested* blood group in email
-                //     location: city,
-                //     patientDescription: patientDescription
-                // }, row.phone);
+                sendSMS({
+                    contact:contact,
+                    donorName: row.name,
+                    bloodType: requiredBloodGroup, // Send the *requested* blood group in email
+                    location: city,
+                    patientDescription: patientDescription
+                }, row.phone);
             });
 
         return res.status(200).json({ message: 'Matching users found', users: rows });
