@@ -64,7 +64,7 @@ async function sendEmail(body,add) {
         <p>We hope you're doing well. We have an urgent request for blood donation in your area, and you are a perfect match to help save a life!</p>
         <p><strong>Blood Type Needed:</strong> ${body.bloodType}</p>
         <p><strong>Location:</strong> ${body.location}</p>
-        <p><strong>Patient in Need:</strong> ${body.patientDescription}</p>
+        <p><strong>Patient's Distress:</strong> ${body.patientDescription}</p>
         <p>If you are available and willing to donate, please RSVP as soon as possible by clicking the link below. Your contribution could make all the difference for someone in critical need.</p>
         <a href="https://wa.me/+91${body.contact}?text=Hi%20there!%20${body.donorName}%20this%20side.%20I%20am%20a%20donor%20registered%20in%20DonorDash%20and%20match%20your%20requirements" class="btn">RSVP Now</a>
         <p>Once you confirm your availability, we will provide you with further details to coordinate the donation.</p>

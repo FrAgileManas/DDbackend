@@ -12,6 +12,7 @@
   "dependencies": {
     "@azure/communication-email": "^1.0.0",
     "@azure/storage-blob": "^12.25.0",
+    "@google/generative-ai": "^0.21.0",
     "axios": "^1.7.7",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
