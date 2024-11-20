@@ -89,8 +89,9 @@ router.post("/donordb", (req, res) => {
         formData['Residential address'],
         formData['Pin Code'],
         formData['Phone number'],
-        formData['Blood Type (if known)']
+        formData['Blood Type']
     ];
+    console.log(values)
 
     db.run(query, values, function (err) {
         if (err) {
