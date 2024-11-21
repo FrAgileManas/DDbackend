@@ -4,12 +4,29 @@ const db = require('../db'); // Database connection
 const { sendEmail } = require('./sendEmail'); 
 const { sendSMS } = require("./sendSMS");
 console.log("sendEmail:", sendEmail);
-// Signup route
+// Signup routes
+router.post("/checkUniqueness", (req, res) => {
+    const { phone, email } = req.body;
+    if (!phone || !email) {
+      return res.status(400).json({ success: false, message: "Phone and Email are required" });
+    }
+  
+    db.get("SELECT * FROM users WHERE phone = ? OR email = ?", [phone, email], (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: "Database error while checking uniqueness." });
+      }
+      if (row) {
+        return res.status(400).json({
+          error: row.phone === phone ? "Phone number already exists." : "Email already exists.",
+        });
+      }
+      res.json({success: true}); // Indicate uniqueness
+    });
+  });
 router.post("/signup", (req, res) => {
     const { name, age, phone, email, password } = req.body;
 
-    // Check if the phone number or email already exists
-    const checkQuery = `
+       const checkQuery = `
         SELECT id FROM users WHERE phone = ? OR email = ?
     `;
 
@@ -38,7 +55,6 @@ router.post("/signup", (req, res) => {
             }
 
             // Return the ID of the newly inserted user
-            console.log(this.lastID)
             res.status(200).json({ 
                 message: "Signup successful!", 
                 userId: this.lastID 
