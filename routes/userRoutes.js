@@ -119,11 +119,43 @@ router.post("/donordb", (req, res) => {
         db.run(`UPDATE users SET isDonor = 1 WHERE id = ?`, [userId], function(updateErr) {
             if (updateErr) {
                 console.error('Error updating donor status:', updateErr); // Log the error
-                // Consider a rollback here if the donor data insertion was successful but the update failed.
             } else {
                 console.log(`Donor status updated for user with ID ${userId}`);
                 res.status(200).json({ message: "Donor data saved successfully!", donorId: this.lastID });
             }
+        });
+    });
+});
+
+router.delete("/donordb/:userId", (req, res) => {
+    const userId = req.params.userId;
+
+    if (!userId) {
+        return res.status(400).json({ error: "User ID is required." });
+    }
+
+    // Use transactions to ensure atomicity (both operations succeed or fail together)
+    db.serialize(() => {
+        db.run("BEGIN TRANSACTION"); // Start transaction
+
+        db.run(`DELETE FROM donors WHERE id = ?`, [userId], function(err) {
+            if (err) {
+                db.run("ROLLBACK"); // Rollback if deletion fails
+                console.error("Error deleting donor data:", err);
+                return res.status(500).json({ error: "Failed to delete donor data." });
+            }
+
+            db.run(`UPDATE users SET isDonor = 0 WHERE id = ?`, [userId], function(updateErr) {
+                if (updateErr) {
+                    db.run("ROLLBACK"); // Rollback if update fails
+                    console.error("Error updating donor status:", updateErr);
+                    return res.status(500).json({ error: "Failed to update donor status." });
+                }
+
+                db.run("COMMIT"); // Commit transaction if both operations succeed
+                console.log(`Donor status updated for user with ID ${userId}`);
+                res.status(200).json({ message: "Donor data removed successfully." });
+            });
         });
     });
 });
