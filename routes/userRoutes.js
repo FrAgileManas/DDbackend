@@ -159,71 +159,74 @@ router.delete("/donordb/:userId", (req, res) => {
         });
     });
 });
-
-router.post('/request', (req, res) => {
-    const { ID,requiredBloodGroup, notifyOPositive, city, patientName, patientDescription } = req.body;
+router.post('/request', async (req, res) => {
+    const { ID, requiredBloodGroup, notifyOPositive, city, patientName, patientDescription } = req.body;
     console.log(req.body);
 
-    let bloodGroupQuery = `donors.bloodType = '${requiredBloodGroup}'`;  // Start with the requested blood group
-    let contact;
-    if (notifyOPositive&& requiredBloodGroup!="O+") { // Only append OR condition if notifyOPositive is true
-        bloodGroupQuery = `donors.bloodType = '${requiredBloodGroup}' OR donors.bloodType = 'O+'`;
-    }
-
-
-    const query = `
-        SELECT *
-        FROM users
-        INNER JOIN donors ON users.id = donors.id
-        WHERE (${bloodGroupQuery}) AND donors.pincode = ?
-    `;  // Using parameterized query
-
-    db.get('SELECT phone FROM users WHERE id = ?', ID, (err, row) => {
-        if (err) {
-            console.error(err.message);
-        } else {
-            if (row) {
-                contact=row.phone;
-                // console.log(`Phone number for user ID ${ID}: ${row.phone}`);
-            } else {
-                console.log(`User with ID ${ID} not found.`);
-            }
-        }
-
-    });
-    db.all(query, [city], (err, rows) => {  // Use parameterized query for city
-        if (err) {
-            console.error('Error executing the query:', err);
-            return res.status(500).json({ error: 'Failed to fetch matching users.' });
-        }
-
-        if (rows.length > 0) {
-            rows.forEach(row => { // Use forEach to iterate over rows
-                sendEmail({
-                    contact:contact,
-                    donorName: row.name,
-                    bloodType: requiredBloodGroup, // Send the *requested* blood group in email
-                    location: city,
-                    patientDescription: patientDescription
-                }, row.email);
-                sendSMS({
-                    contact:contact,
-                    donorName: row.name,
-                    bloodType: requiredBloodGroup, // Send the *requested* blood group in email
-                    location: city,
-                    patientDescription: patientDescription
-                }, row.phone);
+    try {
+        // Fetch contact for the requesting user
+        const userQuery = 'SELECT phone FROM users WHERE id = ?';
+        const requester = await new Promise((resolve, reject) => {
+            db.get(userQuery, ID, (err, row) => {
+                if (err) return reject(err);
+                if (!row) return reject(new Error(`User with ID ${ID} not found.`));
+                resolve(row);
             });
+        });
 
-        return res.status(200).json({ message: 'Matching users found', users: rows });
-        
-    
-    } else {
-        return res.status(200).json({ message: 'No matching users found' });
-      }
-    });
-    
+        const contact = requester.phone;
+
+        // Construct the blood group query
+        let bloodGroupQuery = 'donors.bloodType = ?';
+        const params = [requiredBloodGroup, city];
+
+        if (notifyOPositive && requiredBloodGroup !== 'O+') {
+            bloodGroupQuery = '(donors.bloodType = ? OR donors.bloodType = ?)';
+            params.unshift('O+');
+        }
+
+        // Fetch matching donors
+        const donorQuery = `
+            SELECT *
+            FROM users
+            INNER JOIN donors ON users.id = donors.id
+            WHERE ${bloodGroupQuery} AND donors.pincode = ?
+        `;
+
+        db.all(donorQuery, params, (err, rows) => {
+            if (err) {
+                console.error('Error executing the query:', err);
+                return res.status(500).json({ error: 'Failed to fetch matching users.' });
+            }
+
+            if (rows.length > 0) {
+                rows.forEach(row => {
+                    sendEmail({
+                        contact, // Requesting user's contact
+                        donorName: row.name,
+                        bloodType: requiredBloodGroup, // Requested blood group
+                        location: city,
+                        patientDescription
+                    }, row.email);
+
+                    sendSMS({
+                        contact, // Requesting user's contact
+                        donorName: row.name,
+                        bloodType: requiredBloodGroup, // Requested blood group
+                        location: city,
+                        patientDescription
+                    }, row.phone);
+                });
+
+                return res.status(200).json({ message: 'Matching users found', users: rows });
+            } else {
+                return res.status(200).json({ message: 'No matching users found' });
+            }
+        });
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({ error: err.message });
+    }
 });
-
 
 module.exports = router;
